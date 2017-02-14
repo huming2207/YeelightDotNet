@@ -44,10 +44,20 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ColorMode.cs" />
+    <Compile Include="CronJsonResult.cs" />
+    <Compile Include="CronType.cs" />
     <Compile Include="FakeSsdpHandler.cs" />
+    <Compile Include="ColorFlowType.cs" />
+    <Compile Include="MusicSettingAction.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SettingAdjustmentAction.cs" />
+    <Compile Include="SettingAdjustmentProperties.cs" />
+    <Compile Include="YeelightAction.cs" />
     <Compile Include="YeelightCommand.cs" />
+    <Compile Include="YeelightEffect.cs" />
+    <Compile Include="YeelightJsonPayload.cs" />
     <Compile Include="YeelightModel.cs" />
+    <Compile Include="YeelightParameters.cs" />
     <Compile Include="YeelightStatusResponse.cs" />
     <Compile Include="YeelightTcpHandler.cs" />
   </ItemGroup>
