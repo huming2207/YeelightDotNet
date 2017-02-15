@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.Collections;
+using LiteGuard;
+using System.Text.RegularExpressions;
 
 namespace YeelightHelper
 {
@@ -12,21 +14,14 @@ namespace YeelightHelper
     {
         private string _ipAddress = string.Empty;
 
-        public YeelightCommand(string ip, int port = 55443)
+        public YeelightCommand(string ip)
         {
             _ipAddress = ip;
         }
 
-        public YeelightStatusResponse GetAllStatus()
+        public async Task<YeelightStatusResponse> GetAllStatus()
         {
-            YeelightJsonPayload jsonPayload = new YeelightJsonPayload()
-            {
-                PayloadId = 1,
-                PayloadMethod = "get_prop"
-            };
-
-            jsonPayload.PayloadParameters.AddRange(
-                new string[] 
+            var responseJson = await SendSettingAndWaitJsonPayload("get_prop", new List<object>()
                 {
                     "id",
                     "model",
@@ -41,29 +36,25 @@ namespace YeelightHelper
                     "name"
                 });
 
-            // Convert the payload to JSON and wait to send
-            string jsonPayloadStr = JsonConvert.SerializeObject(jsonPayload);
-
-            // Send and wait for response
-            string responseJsonStr = YeelightTcpHandler.SendAndReceive(jsonPayloadStr, _ipAddress);
-
-            // Create a new received JSON object buffer and deserialize into this object
-            YeelightJsonPayload responseJson = JsonConvert.DeserializeObject<YeelightJsonPayload>(responseJsonStr);
-
             // Get the response array and write to StatusResponse object
             YeelightStatusResponse statusResponse = new YeelightStatusResponse()
             {
-                DeviceId = responseJson.PayloadParameters[0].ToString(),
-                Model = (YeelightModel)(Convert.ToInt32(responseJson.PayloadParameters[1])),
+                DeviceId = responseJson.PayloadParameters[0]?.ToString(),
+                Model = (YeelightModel)Enum.Parse(typeof(YeelightModel), responseJson.PayloadParameters[1].ToString(), true),
                 FirmwareVersion = Convert.ToInt32(responseJson.PayloadParameters[2]),
                 IsPowerOn = (responseJson.PayloadParameters[3].ToString() == "on"),
                 Brightness = Convert.ToInt32(responseJson.PayloadParameters[4]),
-                ColorTemperature = Convert.ToInt32(responseJson.PayloadParameters[5]),
-                RGBValue = Convert.ToInt32(responseJson.PayloadParameters[6]),
-                HueValue = Convert.ToInt32(responseJson.PayloadParameters[7]),
-                SaturationValue = Convert.ToInt32(responseJson.PayloadParameters[8]),
-                DeviceName = responseJson.PayloadParameters[9].ToString(),
             };
+
+            // If the lightbulb is not Single-color (Mono) version, then find out more information
+            if(statusResponse.Model != YeelightModel.Mono)
+            {
+                statusResponse.ColorTemperature = Convert.ToInt32(responseJson.PayloadParameters[5]);
+                statusResponse.RGBValue = Convert.ToInt32(responseJson.PayloadParameters[6]);
+                statusResponse.HueValue = Convert.ToInt32(responseJson.PayloadParameters[7]);
+                statusResponse.SaturationValue = Convert.ToInt32(responseJson.PayloadParameters[8]);
+                statusResponse.DeviceName = responseJson.PayloadParameters[9].ToString();
+            }
 
             return statusResponse;
         }
@@ -75,9 +66,9 @@ namespace YeelightHelper
         /// <param name="effect">Color changing effect, Smooth or Fast</param>
         /// <param name="duration">Duration in millisecond</param>
         /// <returns>Return true if it gets a successful response</returns>
-        public bool SetColorTemperature(int colorTemp, string effect, int duration)
+        public async Task<bool> SetColorTemperature(int colorTemp, string effect, int duration)
         {
-            return AdjustColorOrPower(colorTemp, effect, duration, "set_ct_abx");
+            return await AdjustColorOrPower(colorTemp, effect, duration, "set_ct_abx");
         }
 
         /// <summary>
@@ -87,9 +78,9 @@ namespace YeelightHelper
         /// <param name="effect">Color changing effect, Smooth or Fast</param>
         /// <param name="duration">Duration in millisecond</param>
         /// <returns>Return true if it gets a successful response</returns>
-        public bool SetColorInRGB(int rgbValue, string effect, int duration)
+        public async Task<bool> SetColorInRGB(int rgbValue, string effect, int duration)
         {
-            return AdjustColorOrPower(rgbValue, effect, duration, "set_rgb");
+            return await AdjustColorOrPower(rgbValue, effect, duration, "set_rgb");
         }
 
         /// <summary>
@@ -99,9 +90,9 @@ namespace YeelightHelper
         /// <param name="effect">Color changing effect, Smooth or Fast</param>
         /// <param name="duration">Duration in millisecond</param>
         /// <returns>Return true if it gets a successful response</returns>
-        public bool SetColorInHSV(int hueValue, string effect, int duration)
+        public async Task<bool> SetColorInHSV(int hueValue, string effect, int duration)
         {
-            return AdjustColorOrPower(hueValue, effect, duration, "set_hsv");
+            return await AdjustColorOrPower(hueValue, effect, duration, "set_hsv");
         }
 
         /// <summary>
@@ -111,9 +102,9 @@ namespace YeelightHelper
         /// <param name="effect">Color changing effect, Smooth or Fast</param>
         /// <param name="duration">Duration in millisecond</param>
         /// <returns>Return true if it gets a successful response</returns>
-        public bool SetBrightness(int brightness, string effect, int duration)
+        public async Task<bool> SetBrightness(int brightness, string effect, int duration)
         {
-            return AdjustColorOrPower(brightness, effect, duration, "set_bright");
+            return await AdjustColorOrPower(brightness, effect, duration, "set_bright");
         }
 
         /// <summary>
@@ -123,28 +114,28 @@ namespace YeelightHelper
         /// <param name="effect">Color changing effect, Smooth or Fast</param>
         /// <param name="duration">Duration in millisecond</param>
         /// <returns>Return true if it gets a successful response</returns>
-        public bool SetPower(bool isPowerOn, string effect, int duration)
+        public async Task<bool> SetPower(bool isPowerOn, string effect, int duration)
         {
             string isPowerOnStr = isPowerOn ? "on" : "off";
-            return SendSettingsAndWaitResult("set_power", new List<object> { isPowerOnStr, effect, duration });
+            return await SendSettingsAndWaitResult("set_power", new List<object> { isPowerOnStr, effect, duration });
         }
 
         /// <summary>
         /// Toggle the Yeelight
         /// </summary>
         /// <returns>Return true if it gets a successful response</returns>
-        public bool Toggle()
+        public async Task<bool> Toggle()
         {
-            return SendSettingsAndWaitResult("toggle", new List<object> { });
+            return await SendSettingsAndWaitResult("toggle", new List<object> {  });
         }
 
         /// <summary>
         /// Set current status to default
         /// </summary>
         /// <returns></returns>
-        public bool SetDefault()
+        public async Task<bool> SetDefault()
         {
-            return SendSettingsAndWaitResult("set_default", new List<object> { });
+            return await SendSettingsAndWaitResult("set_default", new List<object> { });
         }
 
         /// <summary>
@@ -154,18 +145,18 @@ namespace YeelightHelper
         /// <param name="action"></param>
         /// <param name="flowExpression"></param>
         /// <returns></returns>
-        public bool StartColorFlow(YeelightAction action, List<ColorFlowType> flows)
+        public async Task<bool> StartColorFlow(YeelightAction action, List<ColorFlowType> flows)
         {
-            return SendSettingsAndWaitResult("start_cf", GetColorFlowParameters(action, flows));
+            return await SendSettingsAndWaitResult("start_cf", GetColorFlowParameters(action, flows));
         }
 
         /// <summary>
         /// 
         /// </summary>
         /// <returns></returns>
-        public bool StopColorFlow()
+        public async Task<bool> StopColorFlow()
         {
-            return SendSettingsAndWaitResult("stop_cf", new List<object> { });
+            return await SendSettingsAndWaitResult("stop_cf", new List<object> { });
         }
 
         /// <summary>
@@ -174,9 +165,9 @@ namespace YeelightHelper
         /// <param name="rgbColor"></param>
         /// <param name="brightness"></param>
         /// <returns></returns>
-        public bool SetSceneInRgb(int rgbColor, int brightness)
+        public async Task<bool> SetSceneInRgb(int rgbColor, int brightness)
         {
-            return SendSettingsAndWaitResult("set_scene", 
+            return await SendSettingsAndWaitResult("set_scene", 
                 new List<object> { "color", rgbColor, brightness });
         }
 
@@ -187,9 +178,9 @@ namespace YeelightHelper
         /// <param name="colorTempValue"></param>
         /// <param name="brightness"></param>
         /// <returns></returns>
-        public bool SetSceneInColorTemp(int colorTempValue, int brightness)
+        public async Task<bool> SetSceneInColorTemp(int colorTempValue, int brightness)
         {
-            return SendSettingsAndWaitResult("set_scene", 
+            return await SendSettingsAndWaitResult("set_scene", 
                 new List<object> { "color", colorTempValue, brightness });
         }
 
@@ -200,9 +191,9 @@ namespace YeelightHelper
         /// <param name="saturationValue"></param>
         /// <param name="brightness"></param>
         /// <returns></returns>
-        public bool SetSceneInHsv(int hueValue, int saturationValue, int brightness)
+        public async Task<bool> SetSceneInHsv(int hueValue, int saturationValue, int brightness)
         {
-            return SendSettingsAndWaitResult("set_scene", 
+            return await SendSettingsAndWaitResult("set_scene", 
                 new List<object> { "hsv", hueValue, saturationValue, brightness });
         }
 
@@ -212,9 +203,9 @@ namespace YeelightHelper
         /// <param name="action"></param>
         /// <param name="flows"></param>
         /// <returns></returns>
-        public bool SetSceneInColorFlow(YeelightAction action, List<ColorFlowType> flows)
+        public async Task<bool> SetSceneInColorFlow(YeelightAction action, List<ColorFlowType> flows)
         {
-            return SendSettingsAndWaitResult("set_scene",
+            return await SendSettingsAndWaitResult("set_scene",
                new List<object> { "cf", GetColorFlowParameters(action, flows)});
         }
 
@@ -224,9 +215,9 @@ namespace YeelightHelper
         /// <param name="brightness"></param>
         /// <param name="timerInMinutes"></param>
         /// <returns></returns>
-        public bool SetSceneInAutoOff(int brightness, int timerInMinutes)
+        public async Task<bool> SetSceneInAutoOff(int brightness, int timerInMinutes)
         {
-            return SendSettingsAndWaitResult("set_scene",
+            return await SendSettingsAndWaitResult("set_scene",
                 new List<object> { "auto_delay_off", brightness, timerInMinutes });
         }
 
@@ -236,9 +227,9 @@ namespace YeelightHelper
         /// <param name="type"></param>
         /// <param name="timerInMinutes"></param>
         /// <returns></returns>
-        public bool AddCron(CronType type, int timerInMinutes)
+        public async Task<bool> AddCron(CronType type, int timerInMinutes)
         {
-            return SendSettingsAndWaitResult("cron_add", new List<object> { (int)type, timerInMinutes });
+            return await SendSettingsAndWaitResult("cron_add", new List<object> { (int)type, timerInMinutes });
         }
 
         /// <summary>
@@ -246,9 +237,9 @@ namespace YeelightHelper
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
-        public List<CronJsonResult> GetCron(CronType type)
+        public async Task<List<CronJsonResult>> GetCron(CronType type)
         {
-            YeelightJsonPayload jsonPayload = SendSettingAndWaitJsonPayload("cron_get", new List<object> { (int)type });
+            var jsonPayload = await SendSettingAndWaitJsonPayload("cron_get", new List<object> { (int)type });
             List<CronJsonResult> cronJsonResults = new List<CronJsonResult>();
 
             foreach (string jsonResult in jsonPayload.PayloadParameters.OfType<string>())
@@ -265,9 +256,9 @@ namespace YeelightHelper
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
-        public bool DeleteCron(CronType type)
+        public async Task<bool> DeleteCron(CronType type)
         {
-            return SendSettingsAndWaitResult("cron_del", new List<object> { });
+            return await SendSettingsAndWaitResult("cron_del", new List<object> { });
         }
 
         /// <summary>
@@ -276,9 +267,9 @@ namespace YeelightHelper
         /// <param name="action"></param>
         /// <param name="prop"></param>
         /// <returns></returns>
-        public bool AdjustSetting(string action, string prop)
+        public async Task<bool> AdjustSetting(string action, string prop)
         {
-            return SendSettingsAndWaitResult("set_adjust", new List<object> { action, prop });
+            return await SendSettingsAndWaitResult("set_adjust", new List<object> { action, prop });
         }
         
         /// <summary>
@@ -288,9 +279,9 @@ namespace YeelightHelper
         /// <param name="hostIP"></param>
         /// <param name="port"></param>
         /// <returns></returns>
-        public bool SetMusic(MusicSettingAction action, string hostIP, string port)
+        public async Task<bool> SetMusic(MusicSettingAction action, string hostIP, string port)
         {
-            return SendSettingsAndWaitResult("set_music", new List<object> { (int)action, hostIP, port });
+            return await SendSettingsAndWaitResult("set_music", new List<object> { (int)action, hostIP, port });
         }
 
         /// <summary>
@@ -298,14 +289,14 @@ namespace YeelightHelper
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        public bool SetName(string name)
+        public async Task<bool> SetName(string name)
         {
-            return SendSettingsAndWaitResult("set_name", new List<object> { name });
+            return await SendSettingsAndWaitResult("set_name", new List<object> { name });
         }
 
-        private bool AdjustColorOrPower(int value, string effect, int duration, string payloadMethod)
+        private async Task<bool> AdjustColorOrPower(int value, string effect, int duration, string payloadMethod)
         {
-            return SendSettingsAndWaitResult(payloadMethod, new List<object> { value, effect, duration });
+            return await SendSettingsAndWaitResult(payloadMethod, new List<object> { value, effect, duration });
         }
 
         private List<object> GetColorFlowParameters(YeelightAction action, List<ColorFlowType> flows)
@@ -327,9 +318,9 @@ namespace YeelightHelper
         }
         
 
-        private bool SendSettingsAndWaitResult(string payloadMethod, List<object> payloadParameter)
+        private async Task<bool> SendSettingsAndWaitResult(string payloadMethod, List<object> payloadParameter)
         {
-            YeelightJsonPayload responseJson = SendSettingAndWaitJsonPayload(payloadMethod, payloadParameter);
+            var responseJson = await SendSettingAndWaitJsonPayload(payloadMethod, payloadParameter);
 
             if (responseJson.PayloadParameters.Contains("ok"))
             {
@@ -341,7 +332,7 @@ namespace YeelightHelper
             }
         }
 
-        private YeelightJsonPayload SendSettingAndWaitJsonPayload(string payloadMethod, List<object> payloadParameter)
+        private async Task<YeelightResultJsonPayload> SendSettingAndWaitJsonPayload(string payloadMethod, List<object> payloadParameter)
         {
             YeelightJsonPayload jsonPayload = new YeelightJsonPayload()
             {
@@ -349,16 +340,26 @@ namespace YeelightHelper
                 PayloadMethod = payloadMethod
             };
 
-            jsonPayload.PayloadParameters.AddRange(payloadParameter);
+            jsonPayload.PayloadParameters = payloadParameter;
 
             // Convert the payload to JSON and wait to send
-            string jsonPayloadStr = JsonConvert.SerializeObject(jsonPayload);
+            string jsonPayloadStr = JsonConvert.SerializeObject(jsonPayload) + "\r\n";
 
             // Send and wait for response
-            string responseJsonStr = YeelightTcpHandler.SendAndReceive(jsonPayloadStr, _ipAddress);
+            string responseJsonStr = await YeelightTcpHandler.SendAndReceive(jsonPayloadStr, _ipAddress);
+
+            var responseJsonSettings = new JsonSerializerSettings
+            {
+                    MissingMemberHandling = MissingMemberHandling.Ignore,
+                    NullValueHandling = NullValueHandling.Include
+            };
+
+            // Somehow Xiaomi designed their API to return some extra contents, which we don't need that and meanwhile it can also causes exceptions.
+            // As a result, here I only reserve the first line of the content, then ignore the rest of them if exists.
+            string responseJsonStrCleaned = Regex.Split(responseJsonStr, "\r\n")[0];
 
             // Create a new received JSON object buffer and deserialize into this object
-            YeelightJsonPayload responseJson = JsonConvert.DeserializeObject<YeelightJsonPayload>(responseJsonStr);
+            var responseJson = JsonConvert.DeserializeObject<YeelightResultJsonPayload>(responseJsonStrCleaned, responseJsonSettings);
 
             return responseJson;
         }

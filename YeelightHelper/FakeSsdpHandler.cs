@@ -13,8 +13,14 @@ namespace YeelightHelper
 {
     public class FakeSsdpHandler
     {
+        /// <summary>
+        /// The code below came from here: http://stackoverflow.com/questions/12794761/upnp-multicast-missing-answers-from-m-search-discovery
+        /// I added some timeout stuff. 
+        /// </summary>
+        /// <returns>List of IP:Port strings</returns>
         public List<string> FindYeelightDevice()
         {
+            // TODO: Add async support
             // Client port
             IPEndPoint LocalEndPoint = new IPEndPoint(IPAddress.Any, 59080);
 
@@ -31,13 +37,13 @@ namespace YeelightHelper
             UdpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 2);
             UdpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastLoopback, true);
 
-            Console.WriteLine("UDP-Socket setup done...\r\n");
+            Console.WriteLine("[FakeSSDP] UDP-Socket setup done...\r\n");
 
             string SearchString = "M-SEARCH * HTTP/1.1\r\nHOST:239.255.255.250:1982\r\nMAN:\"ssdp:discover\"\r\nST:wifi_bulb\r\n";
 
             UdpSocket.SendTo(Encoding.UTF8.GetBytes(SearchString), SocketFlags.None, MulticastEndPoint);
 
-            Console.WriteLine("M-Search sent...\r\n");
+            Console.WriteLine("[FakeSSDP] M-Search sent...\r\n");
 
             byte[] ReceiveBuffer = new byte[64000];
 

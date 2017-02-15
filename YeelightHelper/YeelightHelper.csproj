@@ -30,8 +30,14 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="LiteGuard, Version=0.10.0.0, Culture=neutral, PublicKeyToken=d38e0b7ae24b08a1, processorArchitecture=MSIL">
+      <HintPath>..\packages\LiteGuard.0.10.0\lib\net35\LiteGuard.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="PrimS.Telnet, Version=0.7.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Telnet.0.7.0\lib\net45\PrimS.Telnet.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -58,6 +64,8 @@
     <Compile Include="YeelightJsonPayload.cs" />
     <Compile Include="YeelightModel.cs" />
     <Compile Include="YeelightParameters.cs" />
+    <Compile Include="YeelightResultJsonError.cs" />
+    <Compile Include="YeelightResultJsonPayload.cs" />
     <Compile Include="YeelightStatusResponse.cs" />
     <Compile Include="YeelightTcpHandler.cs" />
   </ItemGroup>
