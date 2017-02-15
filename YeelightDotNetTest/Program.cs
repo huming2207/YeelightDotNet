@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using YeelightHelper;
 
-namespace YeelightSsdpTest
+namespace YeelightDotNetTest
 {
     class Program
     {
